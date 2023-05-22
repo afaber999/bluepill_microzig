@@ -1,0 +1,16 @@
+zig-cache
+zig-out
+**.pde
+**.png
+**.jpg
+**.tif
+**.gif
+**.psd
+**.java
+**.jar
+**.svg
+readme.txt
+*.d
+
+
+

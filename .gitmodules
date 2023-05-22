@@ -1,0 +1,3 @@
+[submodule "deps/stmicro-stm32"]
+	path = deps/stmicro-stm32
+	url = https://github.com/afaber999/stmicro-stm32.git

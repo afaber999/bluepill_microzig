@@ -1,0 +1,13 @@
+set pagination off
+define hook-quit
+    set confirm off
+end
+target extended-remote localhost:3333
+monitor reset halt
+monitor  arm semihosting enable
+#quitmonitor tpiu config internal itm.fifo uart off 8000000
+set remotetimeout 1000
+set arm force-mode thumb
+load 
+break __start__
+c
