@@ -1,8 +1,8 @@
 const std = @import("std");
-const board = @import("board.zig");
 //const stm32 = @import("stmicro-stm32");
 //const hal = stm32.hal;
 const microzig = @import("microzig");
+const board = microzig.board;
 const chip = microzig.chip;
 const hal = microzig.hal;
 const per = microzig.chip.peripherals;
@@ -25,19 +25,62 @@ pub fn debug_spam() void {
     printChar('A');
     printChar('X');
     printChar('B');
-    printChar('C');
+    printChar('1');
+}
+
+//pub const RCC = microzig.peripherals.RCC;
+
+// fn get_regs(uart: UART) *volatile UartRegs {
+//     return switch (@enumToInt(uart)) {
+//         0 => UART0,
+//         1 => UART1,
+//     };
+// }
+
+inline fn set_reg_field(reg: anytype, comptime field_name: anytype, value: anytype) void {
+    var val = reg.read();
+    @field(val, field_name) = value;
+    reg.write(val);
+}
+
+fn get_rcc() *volatile chip.types.RCC {
+    return per.RCC;
 }
 
 pub fn main() !void {
+    // const Foo = MakeStruct(.{
+    //     .{ "someNumber", i32 },
+    //     .{ "?aBool", bool },
+    //     .{ "?yourString", yourString },
+    // });
 
-    per.RCC.APB2ENR.modify( .{.IOPCEN = 1,});
+    //set_reg_field(&per.RCC.APB2ENR, "IOPCEN", 1);
 
-    const LED_PIN = hal.parse_pin("PC13");
-    _ = LED_PIN;
+    // var val = per.RCC.APB2ENR.read();
+    // @field(val, "IOPCEN") = 1;
+    // per.RCC.APB2ENR.write(val);
 
-    per.GPIOC.CRH.modify(.{
-        .MODE13 = 0b10,
-    });
+    // per.RCC.APB2ENR.modify(.{
+    //     .IOPCEN = 1,
+    // });
+
+    // const reg = get_rcc();
+    // _ = reg;
+    // const field = @field(per.RCC, "APB2ENR");
+    // _ = field;
+    // const field_name = "IOPCEN";
+    // @field(temp, field_name) = 1;
+    // per.RCC.APB2ENR.write(temp);
+
+    //set_reg_field(per.RCC.APB2ENR, field_name, 1);
+
+    const LED_PIN = hal.parse_pin(board.pin_map.LED);
+
+    hal.gpio.set_output(LED_PIN);
+
+    // per.GPIOC.CRH.modify(.{
+    //     .MODE13 = 0b10,
+    // });
 
     var loop_idx: u32 = 0;
     while (true) {

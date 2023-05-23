@@ -12,8 +12,7 @@ pub fn build(b: *std.build.Builder) !void {
             .path = "src/main.zig",
         },
         .backing = .{
-            // .board = stm32.boards.STM32F3DISCOVERY,
-            .chip = stm32.chips.stm32f103x8,
+            .board = stm32.boards.stm32f1bluepill,
         },
         .optimize = optimize,
     });

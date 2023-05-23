@@ -10,6 +10,7 @@ set PATH=D:\arm\tools\gcc-arm-none-eabi-10.3-2021.10\bin;%PATH%
 
 arm-none-eabi-gdb -x gdbdebug ./zig-out/bin/blink.elf
 arm-none-eabi-objdump -D ./zig-out/bin/blink.elf
+zig build -Doptimize=ReleaseSmall
 
 
 Start with blink led
