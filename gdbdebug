@@ -4,10 +4,11 @@ define hook-quit
 end
 target extended-remote localhost:3333
 monitor reset halt
+monitor reset init
 monitor  arm semihosting enable
 #quitmonitor tpiu config internal itm.fifo uart off 8000000
 set remotetimeout 1000
 set arm force-mode thumb
 load 
-break main.main
+break app.main
 c
