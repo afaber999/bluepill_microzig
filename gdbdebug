@@ -10,5 +10,5 @@ monitor  arm semihosting enable
 set remotetimeout 1000
 set arm force-mode thumb
 load 
-break app.main
+break microzig_main
 c
