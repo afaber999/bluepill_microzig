@@ -2,34 +2,23 @@ const std = @import("std");
 
 const stm32 = @import("deps/stmicro-stm32/build.zig");
 const microzig = @import("deps/stmicro-stm32/deps/microzig/build.zig");
+const prj_files = @import("src/projects.zig");
 
 pub fn build(b: *std.build.Builder) !void {
     const optimize = b.standardOptimizeOption(.{});
 
-    //var arStr: [2][]const u8 = [_][]const u8{"Hello", "There"};
-    //var files = [2][]const u8{ "src/blinky/app.zig", "src/systick/app.zig" };
+    inline for (@typeInfo(prj_files).Struct.decls) |decl| {
+        if (!decl.is_pub)
+            continue;
 
-    var elf = microzig.addEmbeddedExecutable(b, .{
-        .name = "blink.elf",
-        .source_file = .{
-            .path = "src/blinky/app.zig",
-        },
-        .backing = .{
-            .board = stm32.boards.stm32f1bluepill,
-        },
-        .optimize = optimize,
-    });
-    elf.installArtifact(b);
-
-    elf = microzig.addEmbeddedExecutable(b, .{
-        .name = "systick.elf",
-        .source_file = .{
-            .path = "src/systick/app.zig",
-        },
-        .backing = .{
-            .board = stm32.boards.stm32f1bluepill,
-        },
-        .optimize = optimize,
-    });
-    elf.installArtifact(b);
+        const elf = microzig.addEmbeddedExecutable(b, .{
+            .name = decl.name ++ ".elf",
+            .source_file = @field(prj_files, decl.name).source,
+            .backing = .{
+                .board = stm32.boards.stm32f1bluepill,
+            },
+            .optimize = optimize,
+        });
+        elf.installArtifact(b);
+    }
 }
