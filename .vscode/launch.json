@@ -2,15 +2,19 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "(GDB) Launch",
-            "type": "cppvsdbg",
+            "cwd": "${workspaceRoot}",
+            "executable": "./zig-out/bin/usart_interrupt.elf",
+            "name": "Debug with OpenOCD",
             "request": "launch",
-            "program": "${workspaceFolder}/zig-out/bin/processing_zig.exe",
-            "args": [""],
-            "stopAtEntry": false,
-            "cwd": "${workspaceFolder}",
-            "environment": [],
-            "preLaunchTask": "build"
-        }
+            "type": "cortex-debug",
+            "servertype": "openocd",
+            "configFiles": [
+                "interface/stlink.cfg",
+                "target/stm32f1x.cfg",
+            ],
+            "searchDir": ["D:/arm/tools/openocd/tcl"],
+            "runToEntryPoint": "main",
+            "showDevDebugOutput": "raw"
+        },
     ]
 }

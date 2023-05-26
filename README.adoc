@@ -18,3 +18,5 @@ zig build -Doptimize=ReleaseSmall
 
 Start with blink led
 
+
+zig build flash -Dproject=usart
