@@ -120,10 +120,9 @@ pub fn main() !void {
             put_char('\n');
 
             // show number of interrupts
-            hal.debug_log("#num interrupts: ");
-            hal.debug_print_hex(num_interrupts);
-
-            hal.debug_log("\n");
+            hal.semihosting.put_str("#num interrupts: ");
+            hal.semihosting.put_hex(num_interrupts);
+            hal.semihosting.put_str("\n");
         }
 
         while (ring_buffer.get()) |ch| {

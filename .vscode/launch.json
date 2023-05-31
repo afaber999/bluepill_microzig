@@ -3,7 +3,7 @@
     "configurations": [
         {
             "cwd": "${workspaceRoot}",
-            "executable": "./zig-out/bin/usart_interrupt.elf",
+            "executable": "./zig-out/bin/blinky_hw.elf",
             "name": "Debug with OpenOCD",
             "request": "launch",
             "type": "cortex-debug",
@@ -14,7 +14,13 @@
             ],
             "searchDir": ["D:/arm/tools/openocd/tcl"],
             "runToEntryPoint": "main",
+
+            "postLaunchCommands": [
+                "monitor arm semihosting enable",
+            ],
+
             "showDevDebugOutput": "raw"
+            
         },
     ]
 }

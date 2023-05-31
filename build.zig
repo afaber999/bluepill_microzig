@@ -21,6 +21,11 @@ const prj_files = [_]ProjectFile{
         .bin_path = root() ++ "zig-out/bin/blinky.elf",
     },
     .{
+        .name = "blinky_hw",
+        .source = .{ .path = root() ++ "src/blinky/blinky_hw.zig" },
+        .bin_path = root() ++ "zig-out/bin/blinky_hw.elf",
+    },
+    .{
         .name = "systick",
         .source = .{ .path = root() ++ "src/systick/systick.zig" },
         .bin_path = root() ++ "zig-out/bin/systick.elf",
@@ -34,6 +39,11 @@ const prj_files = [_]ProjectFile{
         .name = "usart_interrupt",
         .source = .{ .path = root() ++ "src/usart/usart_interrupt.zig" },
         .bin_path = root() ++ "zig-out/bin/usart_interrupt.elf",
+    },    
+    .{
+        .name = "usb_hid",
+        .source = .{ .path = root() ++ "src/usb/usb_hid.zig" },
+        .bin_path = root() ++ "zig-out/bin/usb_hid.elf",
     },    
 };
 
