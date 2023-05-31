@@ -45,6 +45,12 @@ const prj_files = [_]ProjectFile{
         .source = .{ .path = root() ++ "src/usb/usb_hid.zig" },
         .bin_path = root() ++ "zig-out/bin/usb_hid.elf",
     },    
+    .{
+        .name = "hal_test",
+        .source = .{ .path = root() ++ "src/hal/hal_test.zig" },
+        .bin_path = root() ++ "zig-out/bin/hal_test.elf",
+    },
+
 };
 
 const linkerscript_path = root() ++ "stm32f1xx.ld";

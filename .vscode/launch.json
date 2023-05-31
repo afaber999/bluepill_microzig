@@ -3,7 +3,7 @@
     "configurations": [
         {
             "cwd": "${workspaceRoot}",
-            "executable": "./zig-out/bin/blinky_hw.elf",
+            "executable": "./zig-out/bin/hal_test.elf",
             "name": "Debug with OpenOCD",
             "request": "launch",
             "type": "cortex-debug",
