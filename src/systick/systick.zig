@@ -20,7 +20,7 @@ pub fn main() !void {
     hal.peripherals.STK.CTRL.write_raw(0);
     hal.peripherals.STK.LOAD_.modify(.{ .RELOAD = 7200000 / 8 - 1 });
     hal.peripherals.STK.VAL.write_raw(0);
-    hal.peripherals.STK.CTRL.modify(.{ .ENABLE = 1, .TICKINT = 1, .CLKSOURCE = 1 });
+    hal.peripherals.STK.CTRL.modify(.{ .ENABLE = 1, .TICKINT = 1, .CLKSOURCE = 0 });
 
     microzig.cpu.enable_interrupts();
 
@@ -55,3 +55,5 @@ pub const microzig_options = struct {
         }
     };
 };
+
+

@@ -143,7 +143,7 @@ pub fn panic(message: []const u8, _: ?*std.builtin.StackTrace, _: ?usize) noretu
 
 pub const std_options = struct {
     pub const log_level = .debug;
-    pub const logFn = hal.uart.log;
+    pub const logFn = hal.usart.log;
 };
 
 const LED_PIN = hal.parse_pin(board.pin_map.LED);

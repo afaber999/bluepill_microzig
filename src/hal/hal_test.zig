@@ -5,10 +5,21 @@ const hal = microzig.hal;
 const dbg = hal.semihosting;
 
 pub fn main() !void {
-    //hal.clocks.setup_high_performance();
-    hal.uart.init(9600);
 
-    hal.clocks.dbg_show();
+    hal.rcc.setup_high_performance(8_000_000);
+
+    // hal.rcc.dbg_show();
+
+    // num 1 = USART2
+    var uart = hal.usart.num(1);
+    uart.apply(9600);
+
+    hal.systick.apply();
+
+    //hal.time.init();
+    hal.usart.init_logger(uart);
+
+    //uart.init(9600);
 
     const LED_PIN = hal.parse_pin(board.pin_map.LED);
 
@@ -18,31 +29,11 @@ pub fn main() !void {
     var loop_idx: u32 = 0;
 
     while (true) {
+        uart.put_hex(loop_idx);
+        uart.put_char('\r');
+        uart.put_char('\n');
+        loop_idx += 1;
 
-        // print line with characters A..Z every so often
-        if (loop_idx == 0) {
-            hal.gpio.toggle(LED_PIN);
-            loop_idx = 3000_000;
-            var ch: u8 = 'A';
-            while (ch <= 'Z') : (ch += 1) {
-                hal.uart.put_char(ch);
-            }
-            hal.uart.put_char('\r');
-            hal.uart.put_char('\n');
-        }
-
-        if (hal.uart.has_char()) {
-            // echo back the received character 10 times
-            hal.uart.put_char('#');
-            var ch = hal.uart.get_char();
-            for (0..10) |i| {
-                _ = i;
-                hal.uart.put_char(ch);
-            }
-            hal.uart.put_char('#');
-            hal.uart.put_char('\r');
-            hal.uart.put_char('\n');
-        }
-        loop_idx -%= 1;
+        hal.systick.delay_ms(5000);
     }
 }

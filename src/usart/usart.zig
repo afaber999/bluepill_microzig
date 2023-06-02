@@ -3,7 +3,6 @@ const microzig = @import("microzig");
 const board = microzig.board;
 const hal = microzig.hal;
 
-
 // default internal clock speed bluepill board (8MHz)
 const SystemCoreClock = 8000000;
 
@@ -21,7 +20,6 @@ inline fn get_char() u8 {
 }
 
 pub fn main() !void {
-
 
     // Enable peripheral clocks: GPIOA, USART2.
     hal.peripherals.RCC.APB1ENR.modify(.{
@@ -59,19 +57,18 @@ pub fn main() !void {
 
     while (true) {
 
-
         // print line with characters A..Z every so often
         if (loop_idx == 0) {
             loop_idx = 3000_000;
-            var ch : u8 = 'A';
-            while ( ch <= 'Z') : (ch += 1) {
+            var ch: u8 = 'A';
+            while (ch <= 'Z') : (ch += 1) {
                 put_char(ch);
             }
             put_char('\r');
             put_char('\n');
         }
 
-        if ( has_char()) {
+        if (has_char()) {
             // echo back the received character 10 times
             put_char('#');
             var ch = get_char();
