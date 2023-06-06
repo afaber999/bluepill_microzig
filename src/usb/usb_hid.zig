@@ -149,7 +149,7 @@ pub const std_options = struct {
 const LED_PIN = hal.parse_pin(board.pin_map.LED);
 
 pub fn main() !void {
-    hal.gpio.set_output(LED_PIN);
+    hal.gpio.set_output(LED_PIN, hal.gpio.OutputMode.pushpull, hal.gpio.OutputSpeed.output_10MHz);
     hal.gpio.write(LED_PIN, hal.gpio.State.high);
 
     // uart.apply(.{

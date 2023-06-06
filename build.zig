@@ -50,6 +50,11 @@ const prj_files = [_]ProjectFile{
         .source = .{ .path = root() ++ "src/hal/hal_test.zig" },
         .bin_path = root() ++ "zig-out/bin/hal_test.elf",
     },
+    .{
+        .name = "i2c_test",
+        .source = .{ .path = root() ++ "src/i2c/i2c_test.zig" },
+        .bin_path = root() ++ "zig-out/bin/i2c_test.elf",
+    },
 
 };
 

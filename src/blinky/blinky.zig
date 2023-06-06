@@ -9,7 +9,7 @@ pub fn main() !void {
     
     const LED_PIN = hal.parse_pin(board.pin_map.LED);
 
-    hal.gpio.set_output(LED_PIN);
+    hal.gpio.set_output(LED_PIN, hal.gpio.OutputMode.pushpull, hal.gpio.OutputSpeed.output_10MHz);
 
     var loop_idx: u32 = 0xBABEFACE;
 

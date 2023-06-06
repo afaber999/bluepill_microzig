@@ -12,7 +12,7 @@ var num_interrupts: u32 = 0;
 pub fn main() !void {
 
     // set onboard LED as output
-    hal.gpio.set_output(LED_PIN);
+    hal.gpio.set_output(LED_PIN, hal.gpio.OutputMode.pushpull, hal.gpio.OutputSpeed.output_10MHz);
 
     // systick setup
     microzig.cpu.disable_interrupts();
