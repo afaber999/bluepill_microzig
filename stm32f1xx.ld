@@ -11,6 +11,7 @@ MEMORY
 {
   flash0 (rx!w) : ORIGIN = 0x08000000, LENGTH = 0x00010000
   ram0   (rw!x) : ORIGIN = 0x20000000, LENGTH = 0x00005000
+  usbpma (rw!x) : ORIGIN = 0x40006000, LENGTH = 0x000003FF
 }
 
 SECTIONS
@@ -44,6 +45,12 @@ SECTIONS
      . = ALIGN(4);
       microzig_bss_end = .;
   } > ram0
+
+	.UsbBuffer (NOLOAD) : {
+    stm32_usb_buf_start = .;
+		*(.usbbuf)
+		*(.usbbuf*)
+	} > usbpma
 
   microzig_data_load_start = LOADADDR(.data);
 }

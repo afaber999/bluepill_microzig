@@ -3,7 +3,7 @@
     "configurations": [
         {
             "cwd": "${workspaceRoot}",
-            "executable": "./zig-out/bin/hal_test.elf",
+            "executable": "./zig-out/bin/usb_test.elf",
             "name": "Debug with OpenOCD",
             "request": "launch",
             "type": "cortex-debug",

@@ -44,6 +44,11 @@ const prj_files = [_]ProjectFile{
         .name = "usb_hid",
         .source = .{ .path = root() ++ "src/usb/usb_hid.zig" },
         .bin_path = root() ++ "zig-out/bin/usb_hid.elf",
+    }, 
+    .{
+        .name = "usb_test",
+        .source = .{ .path = root() ++ "src/usb/usb_test.zig" },
+        .bin_path = root() ++ "zig-out/bin/usb_test.elf",
     },    
     .{
         .name = "hal_test",

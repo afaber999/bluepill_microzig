@@ -149,17 +149,21 @@ pub const std_options = struct {
 const LED_PIN = hal.parse_pin(board.pin_map.LED);
 
 pub fn main() !void {
+
+    // setup high speed configuration, board has a 8MHz crystal
+    hal.rcc.setup_high_performance(8_000_000);
+
+    // use USART2 for logging
+    var uart = hal.usart.num(2);
+    uart.apply(9600);
+
+    hal.systick.apply();
+
+    //hal.time.init();
+    hal.usart.init_logger(uart);
+
     hal.gpio.set_output(LED_PIN, hal.gpio.OutputMode.pushpull, hal.gpio.OutputSpeed.output_10MHz);
     hal.gpio.write(LED_PIN, hal.gpio.State.high);
-
-    // uart.apply(.{
-    //     .baud_rate = baud_rate,
-    //     .tx_pin = uart_tx_pin,
-    //     .rx_pin = uart_rx_pin,
-    //     .clock_config = rp2040.clock_config,
-    // });
-
-    // rp2040.uart.init_logger(uart);
 
     // First we initialize the USB clock
     hal.usb.Usb.init_clk();
@@ -169,7 +173,11 @@ pub fn main() !void {
     //var old: u64 = time.get_time_since_boot().to_us();
     var old: u64 = 0;
     var new: u64 = 0;
+
+    var loop_idx: u32 = 0;
     while (true) {
+        std.log.info("Loop index from logging as err ... 0x{X:0>8}", .{loop_idx});
+
         // You can now poll for USB events
         hal.usb.Usb.task(
             true, // debug output over UART [Y/n]
@@ -178,9 +186,9 @@ pub fn main() !void {
         // AF new = time.get_time_since_boot().to_us();
         if (new - old > 500000) {
             old = new;
-            
-            
+
             // AF led.toggle();
         }
+        loop_idx = loop_idx +% 1;
     }
 }
