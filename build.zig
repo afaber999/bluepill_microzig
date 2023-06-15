@@ -39,17 +39,17 @@ const prj_files = [_]ProjectFile{
         .name = "usart_interrupt",
         .source = .{ .path = root() ++ "src/usart/usart_interrupt.zig" },
         .bin_path = root() ++ "zig-out/bin/usart_interrupt.elf",
-    },    
+    },
     .{
         .name = "usb_hid",
         .source = .{ .path = root() ++ "src/usb/usb_hid.zig" },
         .bin_path = root() ++ "zig-out/bin/usb_hid.elf",
-    }, 
+    },
     .{
         .name = "usb_test",
         .source = .{ .path = root() ++ "src/usb/usb_test.zig" },
         .bin_path = root() ++ "zig-out/bin/usb_test.elf",
-    },    
+    },
     .{
         .name = "hal_test",
         .source = .{ .path = root() ++ "src/hal/hal_test.zig" },
@@ -60,7 +60,6 @@ const prj_files = [_]ProjectFile{
         .source = .{ .path = root() ++ "src/i2c/i2c_test.zig" },
         .bin_path = root() ++ "zig-out/bin/i2c_test.elf",
     },
-
 };
 
 const linkerscript_path = root() ++ "stm32f1xx.ld";
