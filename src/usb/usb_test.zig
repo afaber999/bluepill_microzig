@@ -256,23 +256,23 @@ fn map_mem_addr(mcu_address: u32) u13 {
 // returns Buffer address for PMA table.
 // note PMA buffers grown from top to bottom like stack.
 
-fn get_next_pma(size: u16) u16 {
-    const USB_EPTABLE_SIZE = 0x20; // effective! buffer size of table, 4 entr CHECK CHECK CHECK
-    var result: u16 = USB_PMASIZE; // start on TOP
+// fn get_next_pma(size: u16) u16 {
+//     const USB_EPTABLE_SIZE = 0x20; // effective! buffer size of table, 4 entr CHECK CHECK CHECK
+//     var result: u16 = USB_PMASIZE; // start on TOP
 
-    for (0..USB_NUMBDT) |idx| {
-        var bdt = usb_bdt[idx];
+//     for (0..USB_NUMBDT) |idx| {
+//         var bdt = usb_bdt[idx];
 
-        if ((bdt.tx.addr) and (bdt.tx.addr < result)) result = bdt.tx.addr;
-        if ((bdt.rx.addr) and (bdt.rx.addr < result)) result = bdt.rx.addr;
-    }
+//         if ((bdt.tx.addr) and (bdt.tx.addr < result)) result = bdt.tx.addr;
+//         if ((bdt.rx.addr) and (bdt.rx.addr < result)) result = bdt.rx.addr;
+//     }
 
-    if (result < (USB_EPTABLE_SIZE + size)) {
-        return 0;
-    } else {
-        return result - size;
-    }
-}
+//     if (result < (USB_EPTABLE_SIZE + size)) {
+//         return 0;
+//     } else {
+//         return result - size;
+//     }
+// }
 
 // return frame number
 fn usb_get_frame() u16 {
@@ -426,6 +426,7 @@ pub const EpConfigEntry = struct {
     ep_type: EP_CONFIG_TYPES,
     tx_max: u16,
     rx_max: u16,
+    tx_data_start: u16,
     tx_data_buf: ?*const u8,
     tx_data_len: u16,
     rx_data_buf: ?*u8,
@@ -440,6 +441,7 @@ pub var EpConfigEntries = [_]EpConfigEntry{
         .rx_max = 32,
         .tx_data_buf = null,
         .tx_data_len = 0,
+        .tx_data_start = 0,
         .rx_data_buf = null,
         .rx_data_len = 0,
     },
@@ -450,6 +452,7 @@ pub var EpConfigEntries = [_]EpConfigEntry{
         .rx_max = 16,
         .tx_data_buf = null,
         .tx_data_len = 0,
+        .tx_data_start = 0,
         .rx_data_buf = null,
         .rx_data_len = 0,
     },
@@ -481,7 +484,7 @@ fn usb_reset() void {
             } else {
                 bdt.rx_cnt.data = (epc.rx_max / 2) << 10;
             }
-            std.log.info("bdt.rx_cnt.data set to {}", .{bdt.rx_cnt.data});
+            std.log.info("bdt.rx_cnt.data set to 0x{X:0>4}", .{@truncate(u16, bdt.rx_cnt.data)});
 
             usb_bdt[epc.number] = bdt;
 
@@ -513,7 +516,7 @@ fn usb_reset() void {
 
     std.log.info("RESET COMPLETE DUMP REGS", .{});
     dump_ep_regs();
-    //dump_bdt_mem();
+    dump_bdt_mem();
 }
 
 pub const MyDeviceDescription = [18]u8{
@@ -584,7 +587,7 @@ fn USB_EPHandler(status: u32) void {
                 dump_pma_mem_range(w_idx, xmit_len / 2);
 
                 // update descriptor lengths and assign
-                bdt.rx_addr.data &= (0b1111110000000000);
+                bdt.rx_cnt.data &= (0b1111110000000000);
                 bdt.tx_cnt.data = xmit_len;
                 usb_bdt[ep_num] = bdt;
                 EPRegs.set_tx_status(ep_num, StatusTxRx.valid);
@@ -756,6 +759,20 @@ pub fn main() !void {
 
     microzig.cpu.enable_interrupts();
 
+    // for now alloc RX buffers on stack!
+    var rx_buf0 = std.mem.zeroes([64]u8);
+    var rx_buf1 = std.mem.zeroes([64]u8);
+    //    var rx_buf2 = std.mem.zeroes([64]u8);
+
+    EpConfigEntries[0].rx_data_buf = &rx_buf0[0];
+    EpConfigEntries[0].rx_data_len = 64;
+
+    EpConfigEntries[1].rx_data_buf = &rx_buf1[0];
+    EpConfigEntries[1].rx_data_len = 64;
+
+    // EpConfigEntries[2].rx_addr = rx_buf0;
+    // EpConfigEntries[3].rx_cnt = 64;
+
     //dump_regs();
 
     while (true) {
@@ -791,8 +808,10 @@ pub fn dump_pma_mem() void {
 
 // range in words!! so from 0..255
 pub fn dump_pma_mem_range(start: usize, length: usize) void {
+    std.log.info("======= dump_pma_mem_range from {} len {} ", .{ start, length });
+
     for (start..start + length) |idx| {
-        std.log.info(" 0x{X:0>4} 0x{X:0>4} ", .{ idx, usb_pma[idx].data });
+        std.log.info(" PTR 0x{X:0>8} IDX 0x{X:0>4} VALUE 0x{X:0>4} ", .{ @ptrToInt(&usb_pma[idx].data), idx * 2, usb_pma[idx].data });
     }
 }
 
@@ -909,9 +928,75 @@ pub fn test_xor() void {
     std.log.info("AFTER SET ADDR 1111 0x{X:0>4}", .{@truncate(u16, EPRegs.get(tst_reg))});
 }
 
-var device_address: u16 = 0;
+var device_address: u7 = 0;
 
-pub fn USBLIB_Reset() void {}
+pub fn USBLIB_Reset() void {
+
+    // *********** WARNING **********
+    // We DO NOT CHANGE BTABLE!! So we asume that buffer table start from address 0!!!
+
+    // start on top
+    var addr: u16 = USB_PMASIZE;
+
+    for (0..EPCOUNT) |idx| {
+        if (idx < EpConfigEntries.len) {
+            EpConfigEntries[idx].tx_data_buf = null;
+            EpConfigEntries[idx].tx_data_len = 0;
+            EpConfigEntries[idx].tx_data_start = 0;
+
+            const epc = EpConfigEntries[idx];
+
+            // no read
+            //var bdt : BufferDescriptorTableEntry = BufferDescriptorTableEntry{}; //// {};
+            var bdt = usb_bdt[epc.number];
+
+            addr = addr - epc.tx_max;
+            bdt.tx_addr.data = addr;
+            bdt.tx_cnt.data = 0;
+
+            addr -= epc.rx_max;
+            bdt.rx_addr.data = addr;
+
+            // todo assert values in range
+            if (epc.rx_max > 62) {
+                bdt.rx_cnt.data = 0x8000 | (epc.rx_max / 32) << 10;
+            } else {
+                bdt.rx_cnt.data = (epc.rx_max / 2) << 10;
+            }
+            std.log.info("bdt.rx_cnt.data set to {}", .{bdt.rx_cnt.data});
+
+            usb_bdt[epc.number] = bdt;
+
+            // usb_ep_deconfig(idx);
+            EPRegs.set_addr(epc.number, @intCast(u4, epc.number));
+            const ep_tp = epc.ep_type;
+
+            EPRegs.set_type(epc.number, ep_tp);
+            EPRegs.set_rx_status(idx, StatusTxRx.valid);
+            EPRegs.set_tx_status(idx, StatusTxRx.nak);
+        } else {
+            EPRegs.set_tx_status(idx, StatusTxRx.disabled); // DISABLED OR NAK? check
+            EPRegs.set_rx_status(idx, StatusTxRx.disabled);
+        }
+    }
+
+    peripherals.USB.CNTR.modify(.{
+        .CTRM = 0b1,
+        .RESETM = 0b1,
+        .SUSPM = 0b1,
+        .ERRM = 0b1,
+        //.SOFM = 0b1,
+        // .WKUPM = 0b1,
+    });
+
+    peripherals.USB.ISTR.write_raw(0);
+    peripherals.USB.BTABLE.write_raw(map_mem_addr(@ptrToInt(usb_bdt)));
+    peripherals.USB.DADDR.modify(.{ .EF = 0b1, .ADD = 0 });
+
+    std.log.info("RESET COMPLETE DUMP REGS", .{});
+    dump_ep_regs();
+    dump_bdt_mem();
+}
 
 // copy from PMA recv to EpConfigEntries[ep_num].rx_data_buf
 pub fn USBLIB_Pma2EPBuf2(ep_num: u4) void {
@@ -934,32 +1019,54 @@ pub fn USBLIB_Pma2EPBuf2(ep_num: u4) void {
         dst_ptr[2 * idx + 0] = bh;
         dst_ptr[2 * idx + 1] = bl;
     }
+
+    dump_pma_mem_range(w_idx, count / 2);
 }
 
 // copy TX data from EpConfigEntries[ep_num].tx_data_buf tp PMA(tx) buffer
 pub fn USBLIB_EPBuf2Pma(ep_num: u4) void {
+    var start = EpConfigEntries[ep_num].tx_data_start;
+
+    std.log.info("USBLIB_EPBuf2Pma({}) ptr: {any} start: {} len: {} ", .{ ep_num, EpConfigEntries[ep_num].tx_data_buf, EpConfigEntries[ep_num].tx_data_start, EpConfigEntries[ep_num].tx_data_len });
+
     var count: u16 = std.math.min(EpConfigEntries[ep_num].tx_data_len, EpConfigEntries[ep_num].tx_max);
-    var source_ptr = @ptrCast( [*]const u16, @alignCast( 2, EpConfigEntries[ep_num].tx_data_buf ));
+    var src_ptr = @ptrCast([*]const u8, EpConfigEntries[ep_num].tx_data_buf);
 
     var bdt = usb_bdt[ep_num];
     var w_idx = bdt.tx_addr.data / 2;
 
     // buffer to PMA, factor out this code
-    for (0..count / 2) |idx| {
-        // AF TODO HANDLE ODD NUMBER OF BYTES?
-        var val = source_ptr[2 * idx];
-        usb_pma[w_idx + idx].data = val;
+    var bts = [2]u8{ 0, 0 };
+
+    for (0..(2 * count + 1) / 2) |idx| {
+        if (idx < count) {
+            bts[idx % 2] = src_ptr[start];
+            //std.log.info("COPY GOT {} 0x{x:0>2} ", .{idx , src_ptr[start]});
+            start += 1;
+        } else {
+            bts[idx % 2] = 0;
+        }
+        if ((idx % 2) == 1) {
+            const val = std.mem.bytesToValue(u16, &bts);
+            //std.log.info("--> VAL 0x{x:0>2} bts = {any}", .{val , bts});
+            usb_pma[w_idx + idx / 2].data = val;
+        }
     }
+
     // update description table
     usb_bdt[ep_num].tx_cnt.data = count;
 
-    //EpConfigEntries[ep_num].tx_data_ptr = source_ptr;
-    //EpConfigEntries[ep_num].tx_data_len -= count;
+    // update remaining data
+    EpConfigEntries[ep_num].tx_data_len -= count;
+    EpConfigEntries[ep_num].tx_data_start = start;
+
+    dump_pma_mem_range(w_idx, count / 2);
 }
 
 pub fn USBLIB_SendData(ep_num: u4, data: ?*const u8, length: u16) void {
     EpConfigEntries[ep_num].tx_data_len = length;
     EpConfigEntries[ep_num].tx_data_buf = data;
+    EpConfigEntries[ep_num].tx_data_start = 0;
 
     if (length > 0) {
         USBLIB_EPBuf2Pma(ep_num);
@@ -968,6 +1075,10 @@ pub fn USBLIB_SendData(ep_num: u4, data: ?*const u8, length: u16) void {
     }
 
     EPRegs.set_tx_status(ep_num, StatusTxRx.valid);
+
+    std.log.info("end of USBLIB_SendData DUMP ISTR: 0b{b:0>16} EPReg(0): 0b{b:0>16} ", .{ peripherals.USB.ISTR.raw, EPRegs.get(0) });
+    dump_ep_regs();
+    dump_bdt_mem();
 }
 
 //comptime const ISTRType = @TypeOf(microzig.chip.types.USB.ISTR);
@@ -1009,7 +1120,8 @@ pub fn USBLIB_EPHandler(status: u32) void {
                 switch (setup_packet.request) {
                     USB_REQUEST_SET_ADDRESS => {
                         USBLIB_SendData(0, null, 0);
-                        // AF TODO DeviceAddress = SetupPacket->wValue.L;
+                        device_address = @truncate(u7, setup_packet.value);
+                        std.log.info("USB_REQUEST_SET_ADDRESS  : device_address 0x{x:0>2}", .{device_address});
                     },
 
                     USB_REQUEST_GET_DESCRIPTOR => {
@@ -1057,11 +1169,16 @@ pub fn USBLIB_EPHandler(status: u32) void {
         }
 
         usb_epr[ep_num] = usb_epr[ep_num] & 0x78f;
-        EPRegs.set_tx_status(ep_num, StatusTxRx.valid);
+        EPRegs.set_rx_status(ep_num, StatusTxRx.valid);
+
+        // AFX
+        std.log.info("end of ep & EPRegs.EP_CTR_RX_MASK DUMP ISTR: 0b{b:0>16} EPREGS: 0b{b:0>16}", .{ peripherals.USB.ISTR.raw, EPRegs.get(0) });
+        dump_ep_regs();
+        dump_bdt_mem();
     }
     if ((ep & EPRegs.EP_CTR_TX_MASK) != 0) { //something transmitted
         if (device_address != 0) {
-            peripherals.USB.DADDR.modify(.{ .ADD = @intCast(u7, device_address), .EF = 0b1 });
+            peripherals.USB.DADDR.modify(.{ .ADD = device_address, .EF = 0b1 });
             device_address = 0;
         }
 
@@ -1073,7 +1190,13 @@ pub fn USBLIB_EPHandler(status: u32) void {
         }
 
         // AF TODO 0b 1000 0111 0000 1111
+        // CLEAR CR_TX
+
         usb_epr[ep_num] = usb_epr[ep_num] & 0x870f;
+
+        std.log.info("end of ep & EPRegs.EP_CTR_TX_MASK DUMP ISTR: 0b{b:0>16} EPREGS: 0b{b:0>16} ", .{ peripherals.USB.ISTR.raw, EPRegs.get(0) });
+        dump_ep_regs();
+        dump_bdt_mem();
     }
 }
 
@@ -1092,13 +1215,13 @@ pub fn USB_LP_CAN1_RX0_IRQHandler() void {
         return;
     }
     if (peripherals.USB.ISTR.read().PMAOVR != 0) {
-        std.log.info("USB_LP_CAN1_RX0_IRQHandler PMAVR () status: 0b{b:0>16} FNR 0b{b:0>16}", .{ @truncate(u16, peripherals.USB.ISTR.raw), @truncate(u16, peripherals.USB.FNR.raw) });
+        //std.log.info("USB_LP_CAN1_RX0_IRQHandler PMAVR () status: 0b{b:0>16} FNR 0b{b:0>16}", .{ @truncate(u16, peripherals.USB.ISTR.raw), @truncate(u16, peripherals.USB.FNR.raw) });
         ISTR.clear_pmaovr();
         // Handle PMAOVR status
         return;
     }
     if (peripherals.USB.ISTR.read().SUSP != 0) {
-        std.log.info("USB_LP_CAN1_RX0_IRQHandler SUSP () status: 0b{b:0>16} FNR 0b{b:0>16}", .{ @truncate(u16, peripherals.USB.ISTR.raw), @truncate(u16, peripherals.USB.FNR.raw) });
+        //std.log.info("USB_LP_CAN1_RX0_IRQHandler SUSP () status: 0b{b:0>16} FNR 0b{b:0>16}", .{ @truncate(u16, peripherals.USB.ISTR.raw), @truncate(u16, peripherals.USB.FNR.raw) });
         ISTR.clear_susp();
         if (peripherals.USB.DADDR.read().ADD != 0) {
             peripherals.USB.DADDR.modify(.{ .ADD = 0 });
@@ -1114,19 +1237,19 @@ pub fn USB_LP_CAN1_RX0_IRQHandler() void {
         return;
     }
     if (peripherals.USB.ISTR.read().WKUP != 0) {
-        std.log.info("USB_LP_CAN1_RX0_IRQHandler WKUP () status: 0b{b:0>16} FNR 0b{b:0>16}", .{ @truncate(u16, peripherals.USB.ISTR.raw), @truncate(u16, peripherals.USB.FNR.raw) });
+        //std.log.info("IRQ WKUP () status: 0b{b:0>16} FNR 0b{b:0>16}", .{ @truncate(u16, peripherals.USB.ISTR.raw), @truncate(u16, peripherals.USB.FNR.raw) });
         ISTR.clear_wkup();
         // Handle Wakeup
         return;
     }
     if (peripherals.USB.ISTR.read().SOF != 0) {
-        std.log.info("USB_LP_CAN1_RX0_IRQHandler SOF () status: 0b{b:0>16} FNR 0b{b:0>16}", .{ @truncate(u16, peripherals.USB.ISTR.raw), @truncate(u16, peripherals.USB.FNR.raw) });
+        //std.log.info("USB_LP_CAN1_RX0_IRQHandler SOF () status: 0b{b:0>16} FNR 0b{b:0>16}", .{ @truncate(u16, peripherals.USB.ISTR.raw), @truncate(u16, peripherals.USB.FNR.raw) });
         ISTR.clear_sof();
         // Handle SOF
         return;
     }
     if (peripherals.USB.ISTR.read().ESOF != 0) {
-        std.log.info("USB_LP_CAN1_RX0_IRQHandler ESOF () status: 0b{b:0>16} FNR 0b{b:0>16}", .{ @truncate(u16, peripherals.USB.ISTR.raw), @truncate(u16, peripherals.USB.FNR.raw) });
+        //std.log.info("USB_LP_CAN1_RX0_IRQHandler ESOF () status: 0b{b:0>16} FNR 0b{b:0>16}", .{ @truncate(u16, peripherals.USB.ISTR.raw), @truncate(u16, peripherals.USB.FNR.raw) });
         ISTR.clear_esof();
         // Handle ESOF
         return;
@@ -1181,7 +1304,7 @@ const LANG_US = 0x0409;
 pub fn USBLIB_GetDescriptor(desc_type_and_index: u16) void {
     var bts = std.mem.toBytes(desc_type_and_index);
     const desc_index = bts[0]; // high part = index
-    const desc_type = bts[1];  // low part is type
+    const desc_type = bts[1]; // low part is type
 
     std.log.info("USBLIB_GetDescriptor( type = {} index = {} ) ", .{ desc_type, desc_index });
 
@@ -1191,7 +1314,7 @@ pub fn USBLIB_GetDescriptor(desc_type_and_index: u16) void {
         USB_STR_DESC_TYPE => {
             if (desc_index < USBStringTable.len) {
                 var data = USBStringTable[desc_index];
-                USBLIB_SendData(0, @ptrCast( ?*const u8, data), @intCast(u16, data.len));
+                USBLIB_SendData(0, @ptrCast(?*const u8, data), @intCast(u16, data.len));
             } else {
                 std.log.err("USBLIB_GetDescriptor : unknown index! (index = {} ) ", .{desc_index});
                 USBLIB_SendData(0, null, 0);
@@ -1205,7 +1328,7 @@ pub fn USBLIB_GetDescriptor(desc_type_and_index: u16) void {
 }
 
 pub fn CreateUsbLang(lang_id: u16) []const u8 {
-    const result = [_] u8{ 0x04, 0x03, @truncate(u8, lang_id), lang_id >> 8 };
+    const result = [_]u8{ 0x04, 0x03, @truncate(u8, lang_id), lang_id >> 8 };
     return &result;
 }
 
