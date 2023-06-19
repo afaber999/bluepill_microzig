@@ -158,6 +158,12 @@ pub const EPRegs = struct {
     // These bits behave normally, meaning the written value is directly taken.
     const rw: u16 = EP_FIELD_MASK | EP_KIND_MASK | EP_EA_MASK;
 
+
+    pub fn and_mask( ep_num: usize, mask : u16) void {
+        var val = usb_epr[ep_num] & mask;
+        usb_epr[ep_num] = val;
+    }
+
     // * Because the individual bits of the EPnR registers have to be set in different ways and when writing
     // * care must be taken that the wrong bits are not accidentally written,
     // * This function encapsulates write access. The EP parameter specifies the index of the register. All
@@ -320,8 +326,8 @@ pub var EpConfigEntries = [_]EpConfigEntry{
 };
 
 pub const MyDeviceDescription = [18]u8{
-    18, // bLength
-    1, // bDescriptorType: Device
+    0x12, // bLength
+    0x01, // bDescriptorType: Device
     0x00, 0x02, // bcdUSB
     0xFF, // bDeviceClass: Vendor-specific
     0xFF, // bDeviceSubClass: ignored

@@ -6,8 +6,6 @@ const dbg = hal.semihosting;
 const peripherals = hal.peripherals;
 const zusb = microzig.core.usb;
 const usbh = @import("usb_helper.zig");
-const test0 = @import("usb_test_0.zig");
-
 const LED_PIN = hal.parse_pin(board.pin_map.LED);
 
 pub const ISTR = usbh.ISTR;

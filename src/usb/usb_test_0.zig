@@ -8,10 +8,8 @@ pub const peripherals = microzig.chip.peripherals;
 const LED_PIN = hal.parse_pin(board.pin_map.LED);
 const USB_DM = hal.parse_pin(board.pin_map.USB_DM);
 const USB_DP = hal.parse_pin(board.pin_map.USB_DP);
-//const USB_ENABLE = hal.parse_pin(board.pin_map.USB_ENABLE);
 
 const usbh = @import("usb_helper.zig");
-const test1 = @import("usb_test_1.zig");
 
 pub const ISTR = usbh.ISTR;
 pub const StatusTxRx = usbh.StatusTxRx;
@@ -32,7 +30,6 @@ pub const usb_bdt = usbh.usb_bdt;
 pub const usb_epr = usbh.usb_epr;
 
 const EP_CONFIG_TYPES = usbh.EP_CONFIG_TYPES;
-
 
 fn usb_reset() void {
 
@@ -101,16 +98,15 @@ fn USB_EPHandler(status: u32) void {
     var ep = EPRegs.get(ep_num);
     std.log.info("USB_EPHandler({}) status: 0b{b:0>16} ep 0b{b:0>16}  FNR 0b{b:0>16}", .{ ep_num, @truncate(u16, status), @truncate(u16, ep), @truncate(u16, peripherals.USB.FNR.raw) });
     dump_bdt_mem();
-    dump_pma_mem_range(0, 256);
+    //dump_pma_mem_range(0, 256);
 
-    EPRegs.clear_ctr_rx(ep_num);
-    EPRegs.clear_ctr_tx(ep_num);
 
     if ((ep & EPRegs.EP_CTR_RX_MASK) != 0) {
-        var bdt = usb_bdt[ep_num];
+        
+        EPRegs.clear_ctr_rx(ep_num);
 
-        var start = bdt.rx_addr.data / 2;
-        var length = (bdt.rx_cnt.data & 0x3FF);
+        var start = usb_bdt[ep_num].rx_addr.data / 2;
+        var length = (usb_bdt[ep_num].rx_cnt.data & 0x3FF);
         std.log.info("EP_CTR_RX_MASK start: 0x{x:0>4} len {}", .{ @truncate(u16, start), @truncate(u16, length) });
         dump_pma_mem_range(start, length / 2);
 
@@ -128,11 +124,10 @@ fn USB_EPHandler(status: u32) void {
             if (rqtype == 0x0680) {
                 // get descriptor
                 std.log.info("GET DESCRIPTOR", .{});
-
                 var xmit_len = std.math.min(@intCast(u16, usbh.MyDeviceDescription.len), wlength);
 
                 // send MyDeviceDescription
-                var w_idx = bdt.tx_addr.data / 2;
+                var w_idx = usb_bdt[ep_num].tx_addr.data / 2;
 
                 // buffer to PMA, factor out this code
                 for (0..xmit_len / 2) |idx| {
@@ -144,16 +139,26 @@ fn USB_EPHandler(status: u32) void {
                 dump_pma_mem_range(w_idx, xmit_len / 2);
 
                 // update descriptor lengths and assign
-                //bdt.rx_cnt.data &= (0b1111110000000000);
-                bdt.tx_cnt.data = xmit_len;
-                usb_bdt[ep_num] = bdt;
+                //usb_bdt[ep_num].rx_cnt.data &= (0b1111110000000000);
+                usb_bdt[ep_num].tx_cnt.data = xmit_len;
+
                 EPRegs.set_tx_status(ep_num, StatusTxRx.valid);
             }
         }
     } else if ((ep & EPRegs.EP_CTR_TX_MASK) != 0) {
         // receive again
-        std.log.info("EP_CTR_TX_MASK completed, setup receive again", .{});
-        EPRegs.set_rx_status(ep_num, StatusTxRx.valid);
+        EPRegs.clear_ctr_tx(ep_num);
+
+        if ( usb_bdt[ep_num].tx_cnt.data > 0 ) {
+            std.log.info("EP_CTR_TX_MASK completed, send status change", .{});
+            EPRegs.set_tx_status(ep_num, StatusTxRx.valid);
+            usb_bdt[ep_num].tx_cnt.data = 0;
+        } else {
+            std.log.info("EP_CTR_TX_MASK completed, setup receive again", .{});
+            EPRegs.set_rx_status(ep_num, StatusTxRx.valid);
+        }
+
+
     }
 }
 
@@ -167,8 +172,8 @@ fn usb_poll() void {
     }
     if (peripherals.USB.ISTR.read().CTR != 0) { //Handle data on EP
         std.log.info("POLL EPHandler () status: 0b{b:0>16} FNR 0b{b:0>16}", .{ @truncate(u16, peripherals.USB.ISTR.raw), @truncate(u16, peripherals.USB.FNR.raw) });
-        USB_EPHandler(peripherals.USB.ISTR.raw);
         ISTR.clear_ctr();
+        USB_EPHandler(peripherals.USB.ISTR.raw);
         return;
     }
     if (peripherals.USB.ISTR.read().PMAOVR != 0) {
@@ -221,7 +226,6 @@ pub fn main() void {
 
     usbh.usb_init();
     usbh.usb_connect();
-    std.log.info("USB ENABLED", .{});
 
     var loop_idx: u32 = 0;
 
