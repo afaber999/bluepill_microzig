@@ -25,9 +25,6 @@ pub const std_options = struct {
     pub const logFn = hal.usart.log;
 };
 
-const USBM_PIN = hal.parse_pin("PA11");
-const USBD_PIN = hal.parse_pin("PA12");
-
 var num_interrupts: u32 = 0;
 
 const USB_PMASIZE = 0x200; // size in BYTES! -> 256 u16
@@ -191,8 +188,8 @@ pub fn main() void {
 
     std.log.info("USB Test1 REV B", .{});
 
-    test0.usb_init();
-    test0.usb_connect();
+    usbh.usb_init();
+    usbh.usb_connect();
 
     microzig.cpu.disable_interrupts();
     microzig.cpu.enable_interrupts();

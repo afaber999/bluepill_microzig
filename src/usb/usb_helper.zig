@@ -6,6 +6,10 @@ const dbg = hal.semihosting;
 const peripherals = hal.peripherals;
 const zusb = microzig.core.usb;
 
+
+const USBM_PIN = hal.parse_pin("PA11");
+const USBD_PIN = hal.parse_pin("PA12");
+
 pub const PmaElem = packed struct {
     data: u16,
     reserved: u16,

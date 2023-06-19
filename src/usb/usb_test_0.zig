@@ -33,57 +33,6 @@ pub const usb_epr = usbh.usb_epr;
 
 const EP_CONFIG_TYPES = usbh.EP_CONFIG_TYPES;
 
-const USBM_PIN = hal.parse_pin("PA11");
-const USBD_PIN = hal.parse_pin("PA12");
-
-pub fn usb_init() void {
-    // DISABLE USB
-    peripherals.RCC.APB1ENR.modify(.{ .USBEN = 0b0 });    
-
-    // wait at least 80 ms and release D+ line
-    hal.systick.delay_ms(80);
-    hal.gpio.write(USBD_PIN, hal.gpio.State.high);
-    hal.gpio.set_input(USBD_PIN, hal.gpio.InputMode.floating);
-
-    // USB pullup (for bluepill devices with incorrect pull up resistor)
-    // http://amitesh-singh.github.io/stm32/2017/05/27/Overcoming-wrong-pullup-in-blue-pill.html
-    // see https://www.mikrocontroller.net/articles/USB-Tutorial_mit_STM32
-    hal.gpio.set_output(USBD_PIN, hal.gpio.OutputMode.opendrain, hal.gpio.OutputSpeed.output_50MHz);
-    hal.gpio.write(USBD_PIN, hal.gpio.State.low);
-}
-
-pub fn usb_connect() void {
-
-    // ENABLE USB
-    peripherals.RCC.APB1ENR.modify(.{ .USBEN = 0b1 });
-
-    // RESET USB
-    peripherals.RCC.APB1RSTR.modify(.{ .USBRST = 0b1 });
-    peripherals.RCC.APB1RSTR.modify(.{ .USBRST = 0b0 });
-
-    // enable power, keep reset high
-    // default value after reset = 0x03
-    peripherals.USB.CNTR.modify(.{
-        .PDWN = 0b0,
-        .FRES = 0b1,
-    });
-
-    // wait at least 1 us
-    hal.systick.delay_ms(1);
-
-    // clear status
-    peripherals.USB.ISTR.write_raw(0);
-    std.log.info("usb_connect A CNTR: 0b{b:0>16} ISTR: 0b{b:0>16}", .{ @truncate(u16, peripherals.USB.CNTR.raw), @truncate(u16, peripherals.USB.ISTR.raw) });
-
-    // release reset (FRES)
-    peripherals.USB.CNTR.modify(.{
-        .FRES = 0b0,
-        .CTRM = 0b1,
-        .RESETM = 0b1,
-    });
-
-    std.log.info("usb_connect B CNTR: 0b{b:0>16} ISTR: 0b{b:0>16}", .{ @truncate(u16, peripherals.USB.CNTR.raw), @truncate(u16, peripherals.USB.ISTR.raw) });
-}
 
 fn usb_reset() void {
 
@@ -209,33 +158,69 @@ fn USB_EPHandler(status: u32) void {
 }
 
 fn usb_poll() void {
-    var istr = peripherals.USB.ISTR.read();
-    var istr_val = @intCast(u16, @bitCast(u32, istr));
-
-    while (true) {
-        if (istr.RESET != 0) {
-            std.log.info("RESET !!!! ISTR 0b{b:0>16} FNR 0b{b:0>16}", .{ istr_val, @truncate(u16, peripherals.USB.FNR.raw) });
-            ISTR.clear_reset();
-            test1.usb_reset();
-        } else if (istr.CTR != 0) {
-            std.log.info("CTR !!!! ISTR 0b{b:0>16} FNR 0b{b:0>16}", .{ istr_val, @truncate(u16, peripherals.USB.FNR.raw) });
-            ISTR.clear_ctr();
-            USB_EPHandler(peripherals.USB.ISTR.raw);
-        } else {
-            // AF CHECK PROBABLY NOG GOOD
-            peripherals.USB.ISTR.write_raw(0);
-            break;
-        }
+    if (peripherals.USB.ISTR.read().RESET != 0) {
+        // Reset
+        std.log.info("POLL RESET () status: 0b{b:0>16} FNR 0b{b:0>16}", .{ @truncate(u16, peripherals.USB.ISTR.raw), @truncate(u16, peripherals.USB.FNR.raw) });
+        ISTR.clear_reset();
+        usb_reset();
+        return;
     }
+    if (peripherals.USB.ISTR.read().CTR != 0) { //Handle data on EP
+        std.log.info("POLL EPHandler () status: 0b{b:0>16} FNR 0b{b:0>16}", .{ @truncate(u16, peripherals.USB.ISTR.raw), @truncate(u16, peripherals.USB.FNR.raw) });
+        USB_EPHandler(peripherals.USB.ISTR.raw);
+        ISTR.clear_ctr();
+        return;
+    }
+    if (peripherals.USB.ISTR.read().PMAOVR != 0) {
+        //std.log.info("USB_LP_CAN1_RX0_IRQHandler PMAVR () status: 0b{b:0>16} FNR 0b{b:0>16}", .{ @truncate(u16, peripherals.USB.ISTR.raw), @truncate(u16, peripherals.USB.FNR.raw) });
+        ISTR.clear_pmaovr();
+        // Handle PMAOVR status
+        return;
+    }
+    if (peripherals.USB.ISTR.read().SUSP != 0) {
+        //std.log.info("USB_LP_CAN1_RX0_IRQHandler SUSP () status: 0b{b:0>16} FNR 0b{b:0>16}", .{ @truncate(u16, peripherals.USB.ISTR.raw), @truncate(u16, peripherals.USB.FNR.raw) });
+        ISTR.clear_susp();
+        if (peripherals.USB.DADDR.read().ADD != 0) {
+            peripherals.USB.DADDR.modify(.{ .ADD = 0 });
+            // force reset
+            peripherals.USB.CNTR.modify(.{ .FRES = 0b1 });
+        }
+        return;
+    }
+    if (peripherals.USB.ISTR.read().ERR != 0) {
+        std.log.info("USB_LP_CAN1_RX0_IRQHandler ERR () status: 0b{b:0>16} FNR 0b{b:0>16}", .{ @truncate(u16, peripherals.USB.ISTR.raw), @truncate(u16, peripherals.USB.FNR.raw) });
+        ISTR.clear_err();
+        // Handle Error
+        return;
+    }
+    if (peripherals.USB.ISTR.read().WKUP != 0) {
+        //std.log.info("IRQ WKUP () status: 0b{b:0>16} FNR 0b{b:0>16}", .{ @truncate(u16, peripherals.USB.ISTR.raw), @truncate(u16, peripherals.USB.FNR.raw) });
+        ISTR.clear_wkup();
+        // Handle Wakeup
+        return;
+    }
+    if (peripherals.USB.ISTR.read().SOF != 0) {
+        //std.log.info("USB_LP_CAN1_RX0_IRQHandler SOF () status: 0b{b:0>16} FNR 0b{b:0>16}", .{ @truncate(u16, peripherals.USB.ISTR.raw), @truncate(u16, peripherals.USB.FNR.raw) });
+        ISTR.clear_sof();
+        // Handle SOF
+        return;
+    }
+    if (peripherals.USB.ISTR.read().ESOF != 0) {
+        //std.log.info("USB_LP_CAN1_RX0_IRQHandler ESOF () status: 0b{b:0>16} FNR 0b{b:0>16}", .{ @truncate(u16, peripherals.USB.ISTR.raw), @truncate(u16, peripherals.USB.FNR.raw) });
+        ISTR.clear_esof();
+        // Handle ESOF
+        return;
+    }
+    peripherals.USB.ISTR.write_raw(0);
 }
 
 pub fn main() void {
-    std.log.info("STARTING USB_TEST TEST 0 A", .{});
+    std.log.info("STARTING USB_TEST TEST 0 B", .{});
 
     hal.gpio.set_output(LED_PIN, hal.gpio.OutputMode.pushpull, hal.gpio.OutputSpeed.output_10MHz);
 
-    test1.usb_init();
-    test1.usb_connect();
+    usbh.usb_init();
+    usbh.usb_connect();
     std.log.info("USB ENABLED", .{});
 
     var loop_idx: u32 = 0;
@@ -246,6 +231,7 @@ pub fn main() void {
         }
 
         usb_poll();
+
         loop_idx += 1;
         hal.systick.delay_ms(1);
     }

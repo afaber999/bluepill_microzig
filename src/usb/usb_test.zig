@@ -3,7 +3,7 @@ const microzig = @import("microzig");
 const hal = microzig.hal;
 const board = microzig.board;
 
-const tst = @import("usb_test_1.zig");
+const tst = @import("usb_test_0.zig");
 
 pub const std_options = struct {
     pub const log_level = .debug;
