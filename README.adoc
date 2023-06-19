@@ -20,3 +20,17 @@ Start with blink led
 
 
 zig build flash -Dproject=usart
+
+
+
+ref materials:
+https://www.mikrocontroller.net/articles/USB-Tutorial_mit_STM32
+
+
+
+
+
+Getting USB started
+1) setup frequency so USB clock is set to 48 MHz
+2) Set pin D+ (PA12) to low for 80 ms
+3) 
